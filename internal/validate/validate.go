@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 )
 
 // ValidationError represents validation failure for a specific field
@@ -51,11 +52,20 @@ func (ve *ValidationErrors) add(validationError ValidationError) {
 
 // validate is an initialization of a singleton of the validator package
 var validate *validator.Validate
-var noAllRepeatingChars = "noAllRepeatingChars"
+var (
+	required               = "required"
+	min                    = "min"
+	max                    = "max"
+	email                  = "email"
+	noAllRepeatingCharsTag = "noAllRepeatingChars"
+	uuidTag                = "uuid"
+	oneof                  = "oneof"
+)
 
 func init() {
 	validate = validator.New()
-	validate.RegisterValidation(noAllRepeatingChars, isNotAllRepeatingChars)
+	validate.RegisterValidation(noAllRepeatingCharsTag, isNotAllRepeatingChars)
+	validate.RegisterValidation(uuidTag, validateUUID)
 }
 
 // isNotAllRepeatingChars is a custom validator function that checks if a string
@@ -72,6 +82,13 @@ func isNotAllRepeatingChars(fl validator.FieldLevel) bool {
 	}
 
 	return len(uniqueChars) > 1
+}
+
+// validateUUID is a custom validator function that checks if a string is a valid
+// uuid
+func validateUUID(fl validator.FieldLevel) bool {
+	_, err := uuid.Parse(fl.Field().String())
+	return err == nil
 }
 
 // StructFields validates the payload against the payload's provided validate
@@ -97,35 +114,48 @@ func StructFields[T any](payload T) error {
 			)
 
 			switch err.Tag() {
-			case "required":
+			case required:
 				validationError.Msg = fmt.Sprintf(
 					"%s is required",
 					validationError.Field,
 				)
 
-			case "email":
+			case email:
 				validationError.Msg = fmt.Sprintf(
 					"%s is not a valid email",
 					validationError.Field,
 				)
 
-			case "min":
+			case min:
 				validationError.Msg = fmt.Sprintf(
 					"%s must be at least %s characters long",
 					validationError.Field,
 					err.Param(),
 				)
 
-			case "max":
+			case max:
 				validationError.Msg = fmt.Sprintf(
 					"%s must be at most %s characters long",
 					validationError.Field,
 					err.Param(),
 				)
 
-			case noAllRepeatingChars:
+			case noAllRepeatingCharsTag:
 				validationError.Msg = fmt.Sprintf(
 					"%s cannot contain only spaces or repeating characters",
+					validationError.Field,
+				)
+
+			case oneof:
+				validationError.Msg = fmt.Sprintf(
+					"%s must be either one of these '%s'",
+					validationError.Field,
+					err.Param(),
+				)
+
+			case uuidTag:
+				validationError.Msg = fmt.Sprintf(
+					"%s is not a valid id",
 					validationError.Field,
 				)
 

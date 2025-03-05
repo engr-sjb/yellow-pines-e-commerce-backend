@@ -34,4 +34,4 @@ tmp/
 x-*
 Dockerfile
 migrate
-product
+internal/auth/middleware

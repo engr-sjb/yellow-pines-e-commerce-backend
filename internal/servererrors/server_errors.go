@@ -22,8 +22,11 @@ var (
 	ErrUnauthorized          = errors.New("unauthorized")
 	ErrForbiddenAccess       = errors.New("forbidden access")
 	ErrRequestTimeout        = errors.New("request timeout")
+	ErrNoAccessTokenCookie   = errors.New("missing access token cookie")
 	ErrNoRefreshTokenCookie  = errors.New("missing refresh token cookie")
 	ErrProductAlreadyExists  = errors.New("product already exists")
+	ErrURLQueryParams        = errors.New("one or more invalid value(s) in url query parameter(s)")
+	ErrProductNotFound       = errors.New("product not found")
 )
 
 type ServerError struct {
