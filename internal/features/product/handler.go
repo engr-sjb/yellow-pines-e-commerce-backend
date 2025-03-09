@@ -19,8 +19,8 @@ import (
 
 type servicer interface {
 	createProduct(ctx context.Context, newProduct *CreateProductRequest) error
-	getAllProducts(ctx context.Context, query *GetAllProductsRequestQuery) ([]*Product, int, error)
-	getProduct(ctx context.Context, productID uuid.UUID) (*Product, error)
+	getAllProducts(ctx context.Context, query *GetAllProductsRequestQuery) ([]*ProductAndInventoryDTO, int, error)
+	getProduct(ctx context.Context, productID uuid.UUID) (*ProductAndInventoryDTO, error)
 }
 
 type middleware interface {
@@ -162,33 +162,17 @@ func (h *handler) getAllProductsHandler(w http.ResponseWriter, r *http.Request) 
 		pagesLeftCount = 0
 	}
 
-	productsDTO := make([]*ProductDTO, len(products))
-	for i, product := range products {
-		productsDTO[i] = &ProductDTO{
-			ProductID:   product.ProductID,
-			AdminID:     product.AdminID,
-			Name:        product.Name,
-			Description: product.Description,
-			ImageURL:    product.ImageURL,
-			Price:       product.Price,
-			Category:    product.Category,
-			IsActive:    product.IsActive,
-			CreatedAt:   product.CreatedAt,
-			UpdatedAt:   product.UpdatedAt,
-		}
-	}
-
 	return handlerutils.WriteSuccessJSON(
 		w,
 		http.StatusOK,
 		"all products retrieved",
 		GetAllProductsResponse{
 			AllProductsCount:  totalCount,
-			RetriedItemsCount: len(productsDTO),
+			RetriedItemsCount: len(products),
 			ItemsLeftCount:    itemsLeftCount,
 			TotalPagesCount:   totalPagesCount,
 			PagesLeftCount:    pagesLeftCount,
-			Products:          productsDTO,
+			Products:          products,
 		},
 	)
 }
@@ -209,18 +193,7 @@ func (h *handler) getProductHandler(w http.ResponseWriter, r *http.Request) erro
 		w,
 		http.StatusOK,
 		"product found",
-		ProductDTO{
-			ProductID:   product.ProductID,
-			AdminID:     product.AdminID,
-			Name:        product.Name,
-			Description: product.Description,
-			ImageURL:    product.ImageURL,
-			Price:       product.Price,
-			Category:    product.Category,
-			IsActive:    product.IsActive,
-			CreatedAt:   product.CreatedAt,
-			UpdatedAt:   product.UpdatedAt,
-		},
+		product,
 	)
 }
 

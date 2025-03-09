@@ -10,8 +10,8 @@ import (
 
 type Storer interface {
 	createOne(ctx context.Context, product *CreateProductRequest) error
-	findAll(ctx context.Context, queryItems *GetAllProductsRequestQuery) ([]*Product, int, error)
-	findByID(ctx context.Context, productID uuid.UUID) (*Product, error)
+	findAll(ctx context.Context, queryItems *GetAllProductsRequestQuery) ([]*ProductAndInventoryDTO, int, error)
+	findByID(ctx context.Context, productID uuid.UUID) (*ProductAndInventoryDTO, error)
 	findByName(ctx context.Context, name string) (*Product, error)
 }
 
@@ -45,11 +45,11 @@ func (s *service) createProduct(ctx context.Context, newProduct *CreateProductRe
 	)
 }
 
-func (s *service) getAllProducts(ctx context.Context, queryItems *GetAllProductsRequestQuery) ([]*Product, int, error) {
+func (s *service) getAllProducts(ctx context.Context, queryItems *GetAllProductsRequestQuery) ([]*ProductAndInventoryDTO, int, error) {
 	return s.store.findAll(ctx, queryItems)
 }
 
-func (s *service) getProduct(ctx context.Context, productID uuid.UUID) (*Product, error) {
+func (s *service) getProduct(ctx context.Context, productID uuid.UUID) (*ProductAndInventoryDTO, error) {
 	return s.store.findByID(ctx, productID)
 }
 

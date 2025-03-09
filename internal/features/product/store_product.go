@@ -69,7 +69,10 @@ func (s *Store) createOne(ctx context.Context, product *CreateProductRequest) er
 	return tx.Commit()
 }
 
-func (s *Store) findAll(ctx context.Context, queryItems *GetAllProductsRequestQuery) (products []*Product, count int, err error) {
+func (s *Store) findAll(
+ctx context.Context,
+queryItems *GetAllProductsRequestQuery,
+) (products []*ProductAndInventoryDTO, count int, err error) {
 	query, countQuery, queryParams := generateQueryAndParams(
 		queryItems,
 	)
@@ -98,10 +101,9 @@ func (s *Store) findAll(ctx context.Context, queryItems *GetAllProductsRequestQu
 	defer rows.Close()
 
 	for rows.Next() {
-		var product Product
+		var product ProductAndInventoryDTO
 		err := rows.Scan(
 			&product.ProductID,
-			&product.AdminID,
 			&product.Name,
 			&product.Description,
 			&product.ImageURL,
@@ -109,7 +111,9 @@ func (s *Store) findAll(ctx context.Context, queryItems *GetAllProductsRequestQu
 			&product.Category,
 			&product.IsActive,
 			&product.CreatedAt,
-			&product.UpdatedAt)
+			&product.UpdatedAt,
+			&product.StockQuantity,
+		)
 		if err != nil {
 			return nil, 0, fmt.Errorf(
 				"failed to scan product from product store: %w",
@@ -122,13 +126,18 @@ func (s *Store) findAll(ctx context.Context, queryItems *GetAllProductsRequestQu
 	return products, count, nil
 }
 
-func (s *Store) findByID(ctx context.Context, productID uuid.UUID) (*Product, error) {
-	query := `SELECT * FROM products WHERE product_id = $1`
+func (s *Store) findByID(ctx context.Context, productID uuid.UUID) (*ProductAndInventoryDTO, error) {
+	query := `SELECT 
+	p.product_id, p.name, p.description, p.image_url, p.price, p.category,
+	p.is_active, p.created_at, p.updated_at, i.stock_quantity
+	FROM products p 
+	INNER JOIN inventory i ON p.product_id = i.product_id WHERE p.product_id = $1`
+	// query := `SELECT * FROM products WHERE product_id = $1`
+
 	row := s.db.QueryRowContext(ctx, query, productID)
-	var product Product
+	var product ProductAndInventoryDTO
 	err := row.Scan(
 		&product.ProductID,
-		&product.AdminID,
 		&product.Name,
 		&product.Description,
 		&product.ImageURL,
@@ -136,7 +145,9 @@ func (s *Store) findByID(ctx context.Context, productID uuid.UUID) (*Product, er
 		&product.Category,
 		&product.IsActive,
 		&product.CreatedAt,
-		&product.UpdatedAt)
+		&product.UpdatedAt,
+		&product.StockQuantity,
+	)
 	if err != nil {
 		return &product, fmt.Errorf(
 			"failed to scan product from product store: %w",
@@ -191,8 +202,12 @@ func scanRowsIntoProduct(rows *sql.Rows, product *Product) error {
 
 func generateQueryAndParams(queryItems *GetAllProductsRequestQuery) (string, string, []any) {
 	// Base SQL query
-	defaultQuery := `SELECT * FROM products`
-	defaultCountQuery := `SELECT COUNT(*) FROM products`
+	defaultQuery := `SELECT 
+	p.product_id, p.name, p.description, p.image_url, p.price, p.category,
+	p.is_active, p.created_at, p.updated_at, i.stock_quantity
+	FROM products p 
+	INNER JOIN inventory i ON p.product_id = i.product_id`
+	defaultCountQuery := "SELECT COUNT(*) FROM products p INNER JOIN inventory i ON p.product_id = i.product_id"
 
 	whereClauses := []string{}
 	queryParams := []any{}

@@ -7,21 +7,21 @@ import (
 )
 
 type Product struct {
-	ProductID   uuid.UUID `json:"product_id"`
+	ProductID   uuid.UUID `json:"productID"`
 	AdminID     uuid.UUID `json:"-"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
-	ImageURL    string    `json:"image_url"`
+	ImageURL    string    `json:"imageURL"`
 	Price       float64   `json:"price"`
 	Category    string    `json:"category"`
-	IsActive    bool      `json:"is_active"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"-"`
+	IsActive    bool      `json:"isActive"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
 }
 
 type Inventory struct {
-	ProductID        uuid.UUID `json:"product_id"`
-	StockQuantity    uint      `json:"stock_quantity"`
-	RestockThreshold uint      `json:"restock_threshold"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	ProductID        uuid.UUID `json:"productID"`
+	StockQuantity    uint      `json:"stockQuantity"`
+	RestockThreshold uint      `json:"restockThreshold"`
+	UpdatedAt        time.Time `json:"updatedAt"`
 }

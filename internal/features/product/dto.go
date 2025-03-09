@@ -1,8 +1,6 @@
 package product
 
 import (
-	"time"
-
 	"github.com/google/uuid"
 )
 
@@ -55,24 +53,16 @@ type GetAllProductsRequestQuery struct {
 
 // Responses
 
-type ProductDTO struct {
-	ProductID   uuid.UUID `json:"productID"`
-	AdminID     uuid.UUID `json:"-"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	ImageURL    string    `json:"imageURL"`
-	Price       float64   `json:"price"`
-	Category    string    `json:"category"`
-	IsActive    bool      `json:"isActive"`
-	CreatedAt   time.Time `json:"createdAt"`
-	UpdatedAt   time.Time `json:"-"`
+type ProductAndInventoryDTO struct {
+	Product
+	StockQuantity uint `json:"stockQuantity"`
 }
 
 type GetAllProductsResponse struct {
-	AllProductsCount  int           `json:"allProductsCount"`
-	RetriedItemsCount int           `json:"retriedItemsCount"`
-	TotalPagesCount   int           `json:"totalPagesCount"`
-	PagesLeftCount    int           `json:"pagesLeftCount"`
-	ItemsLeftCount    int           `json:"itemsLeftCount"`
-	Products          []*ProductDTO `json:"products"`
+	AllProductsCount  int                       `json:"allProductsCount"`
+	RetriedItemsCount int                       `json:"retriedItemsCount"`
+	TotalPagesCount   int                       `json:"totalPagesCount"`
+	PagesLeftCount    int                       `json:"pagesLeftCount"`
+	ItemsLeftCount    int                       `json:"itemsLeftCount"`
+	Products          []*ProductAndInventoryDTO `json:"products"`
 }
