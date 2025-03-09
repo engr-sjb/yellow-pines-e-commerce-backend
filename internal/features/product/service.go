@@ -8,20 +8,27 @@ import (
 	"github.com/google/uuid"
 )
 
-type Storer interface {
-	createOne(ctx context.Context, product *CreateProductRequest) error
+type storer interface {
+	createOne(ctx context.Context, product *CreateProductRequest) (uuid.UUID, error)
 	findAll(ctx context.Context, queryItems *GetAllProductsRequestQuery) ([]*ProductAndInventoryDTO, int, error)
-	findByID(ctx context.Context, productID uuid.UUID) (*ProductAndInventoryDTO, error)
+	findByID(ctx context.Context, pdID uuid.UUID) (*ProductAndInventoryDTO, error)
 	findByName(ctx context.Context, name string) (*Product, error)
+	deleteOne(ctx context.Context, pdID uuid.UUID) error
+}
+
+type inventoryServicer interface {
+	CreateInventory(ctx context.Context, pdID uuid.UUID, stkQty uint) error
 }
 
 type service struct {
-	store Storer
+	store            storer
+	inventoryService inventoryServicer
 }
 
-func NewService(store Storer) *service {
+func NewService(productStore storer, inventoryService inventoryServicer) *service {
 	return &service{
-		store: store,
+		store:            productStore,
+		inventoryService: inventoryService,
 	}
 }
 
@@ -39,10 +46,30 @@ func (s *service) createProduct(ctx context.Context, newProduct *CreateProductRe
 		return servererrors.ErrProductAlreadyExists
 	}
 
-	return s.store.createOne(
+	pdID, err := s.store.createOne(
 		ctx,
 		newProduct,
 	)
+	if err != nil {
+		return err
+	}
+
+	if err := s.inventoryService.CreateInventory(
+		ctx,
+		pdID,
+		newProduct.Quantity,
+	); err != nil {
+		fErr := err
+		if err := s.store.deleteOne(ctx, pdID); err != nil {
+			return fmt.Errorf(
+				"error deleting product after inventory creation failed. inventory: %w, product: %w", // todo: revisit and rework err
+				fErr,
+				err,
+			)
+		}
+	}
+
+	return nil
 }
 
 func (s *service) getAllProducts(ctx context.Context, queryItems *GetAllProductsRequestQuery) ([]*ProductAndInventoryDTO, int, error) {

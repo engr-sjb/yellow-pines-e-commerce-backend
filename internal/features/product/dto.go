@@ -7,18 +7,19 @@ import (
 // Requests
 
 type CreateProductRequest struct {
-	AdminID     uuid.UUID `json:"adminID"`
-	Name        string    `json:"name" validate:"required,min=10,max=30,noAllRepeatingChars"`
-	Description string    `json:"description" validate:"required,min=15,max=350,noAllRepeatingChars"`
-	ImageURL    string    `json:"imageURL" validate:"required,url"`
-	Price       float64   `json:"price" validate:"required,gt=0"`
-	Category    string    `json:"category" validate:"required"`
-	Quantity    uint      `json:"quantity" validate:"required"`
+	AdminID     uuid.UUID
+	ProductID   uuid.UUID
+	Name        string  `json:"name" validate:"required,min=10,max=30,noAllRepeatingChars"`
+	Description string  `json:"description" validate:"required,min=15,max=350,noAllRepeatingChars"`
+	ImageURL    string  `json:"imageURL" validate:"required,url"`
+	Price       float64 `json:"price" validate:"required,gt=0"`
+	Category    string  `json:"category" validate:"required"`
+	Quantity    uint    `json:"quantity" validate:"required"`
 }
 
 type UpdateProductRequest struct {
-	AdminID     uuid.UUID `json:"adminID" validate:"required,uuid"`
-	ProductID   string    `json:"productID" validate:"required,uuid"`
+	AdminID     uuid.UUID
+	ProductID   uuid.UUID `json:"productID" validate:"required,uuid"`
 	Name        *string   `json:"name"`
 	Description *string   `json:"description"`
 	ImageURL    *string   `json:"imageURL"`

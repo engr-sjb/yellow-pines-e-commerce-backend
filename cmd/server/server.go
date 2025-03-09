@@ -8,6 +8,8 @@ import (
 
 	"github.com/eng-by-sjb/yellow-pines-e-commerce-backend/internal/auth"
 	"github.com/eng-by-sjb/yellow-pines-e-commerce-backend/internal/features/admin"
+	"github.com/eng-by-sjb/yellow-pines-e-commerce-backend/internal/features/cart"
+	"github.com/eng-by-sjb/yellow-pines-e-commerce-backend/internal/features/inventory"
 	"github.com/eng-by-sjb/yellow-pines-e-commerce-backend/internal/features/product"
 	"github.com/eng-by-sjb/yellow-pines-e-commerce-backend/internal/features/session"
 	"github.com/eng-by-sjb/yellow-pines-e-commerce-backend/internal/features/user"
@@ -89,9 +91,18 @@ func (s *Server) v1Router() *chi.Mux {
 		s.tokenService,
 	)
 
+	// inventory feature
+	inventoryStore := inventory.NewStore(s.db)
+	inventoryService := inventory.NewService(
+		inventoryStore,
+	)
+
 	// products feature
 	productStore := product.NewStore(s.db)
-	productService := product.NewService(productStore)
+	productService := product.NewService(
+		productStore,
+		inventoryService,
+	)
 	productHandler := product.NewHandler(
 		productService,
 		middleware,

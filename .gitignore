@@ -35,3 +35,7 @@ x-*
 Dockerfile
 migrate
 internal/auth/middleware
+internal/paymentprocessor
+internal/features/payment
+internal/features/cart
+internal/features/order

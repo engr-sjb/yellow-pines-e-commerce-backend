@@ -10,32 +10,24 @@ import (
 	"github.com/google/uuid"
 )
 
-type Store struct {
+type store struct {
 	db *sql.DB
 }
 
-func NewStore(db *sql.DB) *Store {
-	return &Store{
+func NewStore(db *sql.DB) *store {
+	return &store{
 		db: db,
 	}
 }
 
-func (s *Store) createOne(ctx context.Context, product *CreateProductRequest) error {
-	tx, err := s.db.BeginTx(
-		ctx,
-		nil,
-	)
-	if err != nil {
-		return err
-	}
-
-	productQuery := `INSERT INTO products(admin_id, name, description, image_url, price, category) VALUES($1, $2, $3, $4, $5, $6) RETURNING product_id`
+func (s *store) createOne(ctx context.Context, product *CreateProductRequest) (uuid.UUID, error) {
+	Query := `INSERT INTO products(admin_id, name, description, image_url, price, category) VALUES($1, $2, $3, $4, $5, $6) RETURNING product_id`
 
 	var productID uuid.UUID
 
-	err = tx.QueryRowContext(
+	err := s.db.QueryRowContext(
 		ctx,
-		productQuery,
+		Query,
 		product.AdminID,
 		product.Name,
 		product.Description,
@@ -44,34 +36,18 @@ func (s *Store) createOne(ctx context.Context, product *CreateProductRequest) er
 		product.Category,
 	).Scan(&productID)
 	if err != nil {
-		tx.Rollback()
-		return fmt.Errorf(
+		return uuid.Nil, fmt.Errorf(
 			"failed to insert new product in product store: %w",
 			err,
 		)
 	}
 
-	inventoryQuery := `INSERT INTO inventory(product_id, stock_quantity) VALUES($1, $2)`
-	_, err = tx.ExecContext(
-		ctx,
-		inventoryQuery,
-		productID,
-		product.Quantity,
-	)
-	if err != nil {
-		tx.Rollback()
-		return fmt.Errorf(
-			"failed to insert new product into inventory in product store: %w",
-			err,
-		)
-	}
-
-	return tx.Commit()
+	return productID, nil
 }
 
-func (s *Store) findAll(
-ctx context.Context,
-queryItems *GetAllProductsRequestQuery,
+func (s *store) findAll(
+	ctx context.Context,
+	queryItems *GetAllProductsRequestQuery,
 ) (products []*ProductAndInventoryDTO, count int, err error) {
 	query, countQuery, queryParams := generateQueryAndParams(
 		queryItems,
@@ -126,7 +102,7 @@ queryItems *GetAllProductsRequestQuery,
 	return products, count, nil
 }
 
-func (s *Store) findByID(ctx context.Context, productID uuid.UUID) (*ProductAndInventoryDTO, error) {
+func (s *store) findByID(ctx context.Context, productID uuid.UUID) (*ProductAndInventoryDTO, error) {
 	query := `SELECT 
 	p.product_id, p.name, p.description, p.image_url, p.price, p.category,
 	p.is_active, p.created_at, p.updated_at, i.stock_quantity
@@ -158,7 +134,7 @@ func (s *Store) findByID(ctx context.Context, productID uuid.UUID) (*ProductAndI
 	return &product, nil
 }
 
-func (s *Store) findByName(ctx context.Context, name string) (*Product, error) {
+func (s *store) findByName(ctx context.Context, name string) (*Product, error) {
 	query := `SELECT * FROM products WHERE name = $1`
 	rows, err := s.db.QueryContext(ctx, query, name)
 	if err != nil {
@@ -184,6 +160,22 @@ func (s *Store) findByName(ctx context.Context, name string) (*Product, error) {
 	return product, nil
 }
 
+func (s *store) deleteOne(ctx context.Context, pdID uuid.UUID) error {
+	query := `DELETE FROM products WHERE product_id = $1`
+	_, err := s.db.ExecContext(ctx, query, pdID)
+	if err != nil {
+		return fmt.Errorf(
+			"failed to delete product from product store: %w",
+			err,
+		)
+	}
+
+	return nil
+}
+
+func (s *store) updateOne(ctx context.Context, productID uuid.UUID, fields map[string]any) error {
+	panic("unimplemented")
+}
 
 func scanRowsIntoProduct(rows *sql.Rows, product *Product) error {
 	return rows.Scan(
