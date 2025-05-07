@@ -1,12 +1,20 @@
 package server
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+	"time"
 
 	"github.com/eng-by-sjb/yellow-pines-e-commerce-backend/internal/auth"
+	"github.com/eng-by-sjb/yellow-pines-e-commerce-backend/internal/eventengine"
 	"github.com/eng-by-sjb/yellow-pines-e-commerce-backend/internal/features/admin"
 	"github.com/eng-by-sjb/yellow-pines-e-commerce-backend/internal/features/cart"
 	"github.com/eng-by-sjb/yellow-pines-e-commerce-backend/internal/features/inventory"
@@ -16,23 +24,36 @@ import (
 	"github.com/eng-by-sjb/yellow-pines-e-commerce-backend/internal/middlewares"
 	"github.com/go-chi/chi"
 	chimiddleware "github.com/go-chi/chi/middleware"
+	"golang.org/x/sync/errgroup"
 )
 
-type Server struct {
-	addr         string
-	db           *sql.DB
-	tokenService *auth.TokenService
+type ServerConfig struct {
+	Addr         string
+	DB           *sql.DB
+	TokenManager *auth.TokenService
 }
 
-func NewServer(addr string, db *sql.DB, tokenService *auth.TokenService) *Server {
-	return &Server{
-		addr:         addr,
-		db:           db,
-		tokenService: tokenService,
+type server struct {
+	*ServerConfig
+
+	doneCh        chan struct{}   // used to signal internal go routines to shutdown
+	internalSrvWG *sync.WaitGroup // used to wait for all internal go routines within individual routes to finish before shutting down the server.
+
+	eventEngine eventengine.SubscribeRegisterPublisher
+	srv         *http.Server
+}
+
+func NewServer(serverConfig *ServerConfig) *server {
+	srv := &server{
+		ServerConfig:  serverConfig,
+		doneCh:        make(chan struct{}),
+		internalSrvWG: &sync.WaitGroup{},
 	}
+
+	return srv
 }
 
-func (s *Server) Start() error {
+func (s *server) Run() {
 	router := chi.NewRouter()
 
 	// strip trailing slashes at the end of the url
@@ -41,19 +62,93 @@ func (s *Server) Start() error {
 	// to ensure that the url is correctly formatted
 	router.Use(chimiddleware.StripSlashes)
 
+	s.prep()
+
 	router.Mount("/api/v1", s.v1Router()) // api version 1 subrouter
 
-	srv := http.Server{
-		Addr:    fmt.Sprintf(":%s", s.addr),
+	s.srv = &http.Server{
+		Addr:    fmt.Sprintf(":%s", s.Addr),
 		Handler: router,
 	}
 
-	log.Printf("Server started at port %s\n", s.addr)
-
-	return srv.ListenAndServe()
+	// start server and listen for [os.Signal] signals to graceful shutdown server.
+	s.listenAndServe()
 }
 
-func (s *Server) v1Router() *chi.Mux {
+func (s *server) listenAndServe() {
+	shutdownCtx, shutdownCancel := signal.NotifyContext(
+		context.Background(),
+		syscall.SIGTERM,
+		syscall.SIGINT,
+	)
+	defer shutdownCancel()
+
+	errGrp, shutdownCtx := errgroup.WithContext(shutdownCtx)
+
+	errGrp.Go(
+		func() error {
+			log.Printf("server started and is listening at port %s...\n", s.Addr)
+
+			if err := s.srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) && err != nil {
+				return fmt.Errorf("failed to start server: %w", err)
+			}
+
+			return nil
+		},
+	)
+
+	errGrp.Go(
+		func() error {
+			<-shutdownCtx.Done() // block and listen shutdown signals
+			println()
+			log.Println("hold and wait, server is gracefully shutting down...")
+
+			ctx, cancel := context.WithTimeout(
+				context.Background(),
+				(20 * time.Second),
+			)
+			defer cancel()
+
+			log.Println("server has stopped receiving new requests")
+			log.Println("waiting for all pending requests to finish....")
+			if err := s.srv.Shutdown(ctx); err != nil {
+				return fmt.Errorf("server failed shutdown gracefully: %w", err)
+			}
+
+			return nil
+		},
+	)
+
+	if err := errGrp.Wait(); err != nil {
+		log.Fatal(err.Error())
+	}
+	log.Println("all pending requests completed!")
+
+	log.Println("waiting for all internal pending go routines....")
+	close(s.doneCh)
+	s.internalSrvWG.Wait()
+	log.Println("all internal go routines are done")
+
+	log.Println("closing other resources...")
+	if err := s.DB.Close(); err != nil {
+		log.Println("server failed to close db for shutdown")
+	}
+
+	log.Println("server has been gracefully shutdown")
+	os.Exit(0)
+}
+
+// prep prepares server dependencies needed for server to function
+func (s *server) prep() {
+	s.eventEngine = eventengine.NewEventEngine(
+		&eventengine.EventEngineConfig{
+			DoneCh:        s.doneCh,
+			InternalSrvWG: s.internalSrvWG,
+		},
+	)
+}
+
+func (s *server) v1Router() *chi.Mux {
 	r := chi.NewRouter()
 
 	// health check
@@ -62,23 +157,26 @@ func (s *Server) v1Router() *chi.Mux {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
+
+	// todo: pass the [s.internalSrvWG] wait group down to the Various handlers, services and so on that spawn internal go routines.
+
 	// session feature
-	sessionStore := session.NewStore(s.db)
+	sessionStore := session.NewStore(s.DB)
 	sessionService := session.NewService(
 		sessionStore,
-		s.tokenService,
+		s.TokenManager,
 	)
 	sessionHandler := session.NewHandler(sessionService)
 	sessionHandler.RegisterRoutes(r)
 
 	// user feature
-	userStore := user.NewStore(s.db)
+	userStore := user.NewStore(s.DB)
 	userService := user.NewService(userStore, sessionService)
 	userHandler := user.NewHandler(userService)
 	userHandler.RegisterRoutes(r)
 
 	//admin feature
-	adminStore := admin.NewStore(s.db)
+	adminStore := admin.NewStore(s.DB)
 	adminService := admin.NewService(
 		adminStore,
 		sessionService,
@@ -88,17 +186,17 @@ func (s *Server) v1Router() *chi.Mux {
 
 	//middleware
 	middleware := middlewares.NewMiddleware(
-		s.tokenService,
+		s.TokenManager,
 	)
 
 	// inventory feature
-	inventoryStore := inventory.NewStore(s.db)
+	inventoryStore := inventory.NewStore(s.DB)
 	inventoryService := inventory.NewService(
 		inventoryStore,
 	)
 
 	// products feature
-	productStore := product.NewStore(s.db)
+	productStore := product.NewStore(s.DB)
 	productService := product.NewService(
 		productStore,
 		inventoryService,

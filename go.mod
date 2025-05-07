@@ -6,13 +6,20 @@ require (
 	github.com/go-chi/chi v1.5.5
 	github.com/go-playground/validator/v10 v10.22.0
 	github.com/joho/godotenv v1.5.1
+	github.com/rpip/paystack-go v0.0.0-20210725234520-196191f8ab58
+	github.com/stretchr/testify v1.8.4
 	golang.org/x/crypto v0.25.0
+	golang.org/x/sync v0.7.0
 )
 
 require (
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
+	github.com/mitchellh/mapstructure v1.1.2 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 require (

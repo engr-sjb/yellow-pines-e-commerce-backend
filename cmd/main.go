@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/eng-by-sjb/yellow-pines-e-commerce-backend/cmd/server"
@@ -20,24 +19,23 @@ var (
 )
 
 func main() {
-	log.SetFlags(log.Ldate | log.Lshortfile)
+	log.SetFlags(log.Ldate | log.Llongfile)
 
 	db, err := storage.NewPostgresDB(PostgresConnStr)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	srv := server.NewServer(
-		srvAddr,
-		db,
-		auth.NewTokenService(
+	srv := server.NewServer(&server.ServerConfig{
+		Addr: srvAddr,
+		DB:   db,
+		TokenManager: auth.NewTokenService(
 			accessTokenSecret,
 			refreshTokenSecret,
 			accessTokenExpiryInSecs,
 			refreshTokenExpiryInSecs,
 		),
+	},
 	)
-	if err := srv.Start(); err != nil {
-		log.Fatal(fmt.Errorf("failed to start server: %w", err))
-	}
+	srv.Run()
 }
