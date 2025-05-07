@@ -2,6 +2,7 @@ package validate
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -60,6 +61,7 @@ var (
 	noAllRepeatingCharsTag = "noAllRepeatingChars"
 	uuidTag                = "uuid"
 	oneof                  = "oneof"
+	greaterThan            = "gt"
 )
 
 func init() {
@@ -87,8 +89,27 @@ func isNotAllRepeatingChars(fl validator.FieldLevel) bool {
 // validateUUID is a custom validator function that checks if a string is a valid
 // uuid
 func validateUUID(fl validator.FieldLevel) bool {
-	_, err := uuid.Parse(fl.Field().String())
-	return err == nil
+	field := fl.Field()
+
+	// check if the field is a pointer
+	if field.Kind() == reflect.Ptr {
+		// check if field is nil
+		if field.IsNil() {
+			return false
+		}
+
+		// if not nil then extract the underlying value
+		field = field.Elem()
+	}
+
+	// check if field is off type uuid.UUID
+	if field.Type() != reflect.TypeOf(uuid.UUID{}) {
+		return false
+	}
+
+	u := field.Interface().(uuid.UUID)
+
+	return u != uuid.Nil
 }
 
 // StructFields validates the payload against the payload's provided validate
@@ -103,6 +124,8 @@ func StructFields[T any](payload T) error {
 		var validationError ValidationError
 
 		for _, err := range err.(validator.ValidationErrors) {
+			// log.Printf("%+v", err)
+			// log.Println(strings.Split(strings.Split(err.StructNamespace(), ".")[1], ""))
 			validationError.Field = fmt.Sprint(
 				strings.ToLower(err.Field()[:1]),
 				err.Field()[1:],
@@ -157,6 +180,14 @@ func StructFields[T any](payload T) error {
 				validationError.Msg = fmt.Sprintf(
 					"%s is not a valid id",
 					validationError.Field,
+				)
+
+			case greaterThan:
+				validationError.Msg = fmt.Sprintf(
+					"%s (%s) must be greater than %s",
+					validationError.Field,
+					strings.Split(err.Namespace(), ".")[1],
+					err.Param(),
 				)
 
 			default:
