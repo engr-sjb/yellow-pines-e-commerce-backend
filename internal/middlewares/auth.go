@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/eng-by-sjb/yellow-pines-e-commerce-backend/internal/auth"
 	"github.com/eng-by-sjb/yellow-pines-e-commerce-backend/internal/handlerutils"
 	"github.com/eng-by-sjb/yellow-pines-e-commerce-backend/internal/servererrors"
 	"github.com/google/uuid"
@@ -13,22 +12,6 @@ import (
 type contextKey struct{}
 
 var EntityKey contextKey = contextKey{}
-
-type tokenServicer interface {
-	ValidateAccessToken(tokenStr string) (isValid bool, claims *auth.TokenClaims, err error)
-}
-
-type middleware struct {
-	tokenService tokenServicer
-}
-
-func NewMiddleware(
-	tokenService tokenServicer,
-) *middleware {
-	return &middleware{
-		tokenService: tokenService,
-	}
-}
 
 func (mw *middleware) AuthWithContext(h handlerutils.APIHandler, authEntityType string) handlerutils.APIHandler {
 	return func(w http.ResponseWriter, r *http.Request) error {
@@ -41,7 +24,7 @@ func (mw *middleware) AuthWithContext(h handlerutils.APIHandler, authEntityType 
 			)
 		}
 
-		isValid, claims, err := mw.tokenService.ValidateAccessToken(accessToken.Value)
+		isValid, claims, err := mw.jwtManager.ValidateAccessToken(accessToken.Value)
 		if err != nil {
 			return err
 		}
