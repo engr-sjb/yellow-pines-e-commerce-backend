@@ -39,3 +39,9 @@ internal/paymentprocessor
 internal/features/payment
 internal/features/cart
 internal/features/order
+internal/actorengine
+internal/pulumi
+internal/backgroundworkers
+internal/tokens
+docker-compose.yml
+Dockerfile
