@@ -46,17 +46,17 @@ type eventEngine struct {
 	// ctx               *events.Context // todo: i don't remember why i had ctx here. i know it is important
 }
 
-func NewEventEngine(eventEngineConfig *EventEngineConfig) SubscribeRegisterPublisher {
-	if eventEngineConfig == nil {
+func NewEventEngine(cfg *EventEngineConfig) SubscribeRegisterPublisher {
+	if cfg == nil {
 		log.Fatalln("'eventEngineConfig' can not be nil")
 	}
 
-	if eventEngineConfig.DoneCh == nil || eventEngineConfig.InternalSrvWG == nil {
+	if cfg.DoneCh == nil || cfg.InternalSrvWG == nil {
 		log.Fatalln("either DoneCh or InternalSrvWG is nil")
 	}
 
 	e := &eventEngine{
-		EventEngineConfig: eventEngineConfig,
+		EventEngineConfig: cfg,
 		events:            make(map[event.EventName]*subscribers, 20),
 		eventEngineCh:     make(chan *event.Event, 20),
 	}
