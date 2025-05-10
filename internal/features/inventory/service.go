@@ -20,6 +20,6 @@ func NewService(inventoryStore storer) *service {
 	}
 }
 
-func (s *service) CreateInventory(ctx context.Context, pdID uuid.UUID, stkQty uint) error {
+func (s *service) createInventory(ctx context.Context, pdID uuid.UUID, stkQty uint) error {
 	return s.store.createOne(ctx, pdID, stkQty)
 }

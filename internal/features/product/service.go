@@ -2,7 +2,11 @@ package product
 
 import (
 	"context"
+	"fmt"
 	"strings"
+
+	"github.com/eng-by-sjb/yellow-pines-e-commerce-backend/internal/eventengine"
+	"github.com/eng-by-sjb/yellow-pines-e-commerce-backend/internal/eventengine/event"
 
 	"github.com/eng-by-sjb/yellow-pines-e-commerce-backend/internal/servererrors"
 	"github.com/google/uuid"
@@ -16,19 +20,16 @@ type storer interface {
 	deleteOne(ctx context.Context, pdID uuid.UUID) error
 }
 
-type inventoryServicer interface {
-	CreateInventory(ctx context.Context, pdID uuid.UUID, stkQty uint) error
-}
-
 type service struct {
-	store            storer
-	inventoryService inventoryServicer
+	store storer
+	// inventoryService inventoryServicer // todo: remove this and replace with event engine. or keep it.
+	eventEngine eventengine.Publisher
 }
 
-func NewService(productStore storer, inventoryService inventoryServicer) *service {
+func NewService(productStore storer, eventEngine eventengine.Publisher) *service {
 	return &service{
-		store:            productStore,
-		inventoryService: inventoryService,
+		store:       productStore,
+		eventEngine: eventEngine,
 	}
 }
 
@@ -54,19 +55,49 @@ func (s *service) createProduct(ctx context.Context, newProduct *CreateProductRe
 		return err
 	}
 
-	if err := s.inventoryService.CreateInventory(
-		ctx,
-		pdID,
-		newProduct.Quantity,
-	); err != nil {
-		fErr := err
+	// if err := s.inventoryService.CreateInventory(
+	// 	ctx,
+	// 	pdID,
+	// 	newProduct.Quantity,
+	// ); err != nil {
+	// 	fErr := err
+	// 	if err := s.store.deleteOne(ctx, pdID); err != nil {
+	// 		return fmt.Errorf(
+	// 			"error deleting product after inventory creation failed. inventory: %w, product: %w", // todo: revisit or keep it.
+	// 			fErr,
+	// 			err,
+	// 		)
+	// 	}
+	// }
+
+	newEvent := &event.ProductCreatedEvent{
+		ProductPayload: event.ProductPayload{
+			ProductID:     pdID,
+			StockQuantity: newProduct.Quantity,
+		},
+	}
+
+	err = s.eventEngine.Publish(
+		&event.Event{
+			Name:    newEvent.GetEventName(),
+			Payload: newEvent,
+		},
+	)
+	if err != nil {
+		firstErr := err
+
 		if err := s.store.deleteOne(ctx, pdID); err != nil {
 			return fmt.Errorf(
-				"error deleting product after inventory creation failed. inventory: %w, product: %w", // todo: revisit and rework err
-				fErr,
+				"error deleting newly created product after publishing event failed. eventEnginePublish: %w, product: %w",
+				firstErr,
 				err,
 			)
 		}
+
+		return fmt.Errorf(
+			"error publishing event after product creation. eventEnginePublish: %w",
+			firstErr,
+		)
 	}
 
 	return nil
@@ -80,3 +111,18 @@ func (s *service) getProduct(ctx context.Context, productID uuid.UUID) (*Product
 	return s.store.findByID(ctx, productID)
 }
 
+func (s *service) deleteProduct(ctx context.Context, productID uuid.UUID) error {
+	err := s.store.deleteOne(
+		ctx,
+		productID,
+	)
+
+	if err != nil {
+		return fmt.Errorf(
+			"err happened: %w",
+			err,
+		)
+	}
+
+	return nil
+}

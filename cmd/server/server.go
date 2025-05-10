@@ -193,13 +193,28 @@ func (s *server) v1Router() *chi.Mux {
 	inventoryStore := inventory.NewStore(s.DB)
 	inventoryService := inventory.NewService(
 		inventoryStore,
+	inventory.NewEventHandler(
+		&inventory.HandlerEventsConfig{
+			DoneCh:        s.doneCh,
+			EventEngine:   s.eventEngine,
+			Service:       inventoryService,
+			AddressChSize: 10,
+		},
 	)
 
 	// products feature
 	productStore := product.NewStore(s.DB)
 	productService := product.NewService(
 		productStore,
-		inventoryService,
+		s.eventEngine,
+	)
+	product.NewHandlerEvents(
+		&product.HandlerEventsConfig{
+			DoneCh:        s.doneCh,
+			EventEngine:   s.eventEngine,
+			Service:       productService,
+			AddressChSize: 10,
+		},
 	)
 	productHandler := product.NewHandler(
 		productService,

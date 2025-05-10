@@ -21,6 +21,7 @@ type servicer interface {
 	createProduct(ctx context.Context, newProduct *CreateProductRequest) error
 	getAllProducts(ctx context.Context, query *GetAllProductsRequestQuery) ([]*ProductAndInventoryDTO, int, error)
 	getProduct(ctx context.Context, productID uuid.UUID) (*ProductAndInventoryDTO, error)
+	deleteProduct(ctx context.Context, productID uuid.UUID) error
 }
 
 type middleware interface {
