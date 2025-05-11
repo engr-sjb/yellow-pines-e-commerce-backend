@@ -38,9 +38,9 @@ func NewEventHandler(
 		cfg.AddressChSize = 10
 	}
 
-	if cfg.DoneCh == nil || cfg.EventEngine == nil || cfg.Service == nil {
+	if cfg.DoneCh == nil || cfg.InternalSrvWG == nil || cfg.EventEngine == nil || cfg.Service == nil {
 		log.Fatalf(
-			"either 'DoneCh', 'EventEngine' or 'Service' is nil in '%s'",
+			"either 'DoneCh', 'EventEngine', 'InternalSrvWG' or 'Service' is nil in '%s'",
 			subscriberName,
 		)
 	}

@@ -196,6 +196,7 @@ func (s *server) v1Router() *chi.Mux {
 	inventory.NewEventHandler(
 		&inventory.HandlerEventsConfig{
 			DoneCh:        s.doneCh,
+			InternalSrvWG: s.internalSrvWG,
 			EventEngine:   s.eventEngine,
 			Service:       inventoryService,
 			AddressChSize: 10,
@@ -211,6 +212,7 @@ func (s *server) v1Router() *chi.Mux {
 	product.NewHandlerEvents(
 		&product.HandlerEventsConfig{
 			DoneCh:        s.doneCh,
+			InternalSrvWG: s.internalSrvWG,
 			EventEngine:   s.eventEngine,
 			Service:       productService,
 			AddressChSize: 10,
